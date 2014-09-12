@@ -8,7 +8,7 @@
 # Released under the terms of the MIT License.
 
 VERSION=0.0.1
-BASE_URL='https://groups.google.com/forum/?_escaped_fragment_='
+BASE_URL='https://groups.google.com/forum/'
 
 EX_USAGE=64
 topic_range=100
@@ -29,13 +29,17 @@ debug_print() {
 }
 
 req() {
-    debug_print query: "$1"
+    debug_print req: "$1"
     curl -sN -b "$cookie_str" "$BASE_URL$@"
+}
+
+req_fragment() {
+    req "?_escaped_fragment_=$@"
 }
 
 test_permission() {
     debug_print testing permission
-    req "forum/${group_id}%5B1-1-false%5D" -I | grep -q '200 OK'
+    req_fragment "forum/${group_id}%5B1-1-false%5D" -I | grep -q '200 OK'
 }
 
 get_topics_single() {
@@ -44,7 +48,7 @@ get_topics_single() {
 
     debug_print "get topics $group_id [$start-$end]"
 
-    req "forum/${group_id}%5B${start}-${end}-false%5D" | sed -n \
+    req_fragment "forum/${group_id}%5B${start}-${end}-false%5D" | sed -n \
         "s/^<i>Showing [^<]* of 0 topics<\/i>$//p;
         s/<tr>/\0\n/; /lastPostDate/ {
             s/.*lastPostDate\">\([^<]*\).*$/\1/m; P; D;
@@ -65,7 +69,7 @@ get_topics() {
     local end=$(($2))
     local temp_end
 
-    if [[ -z "$start" ]]; then
+    if ((start==0)); then
         start=1
     fi
 
@@ -80,7 +84,7 @@ get_topics() {
 # get message ids in a topic
 get_messages() {
     local topic_id="$1"
-    req "topic/${group_id}/${topic_id}" | sed -n\
+    req_fragment "topic/${group_id}/${topic_id}" | sed -n\
         's/.*<td class="subject"><a href="[^"]*'$topic_id'\/\([^"]*\)".*/\1/p'
 }
 
@@ -90,9 +94,17 @@ download_message() {
     debug_print download topic $topic_id message $msg_id
     path="${dest_dir}/${group_id}${topic_id}${msg_id}.eml"
     if [[ -s "$path" ]]; then
-        echo "file for message ${msg_id} already exists. skipping."
+        echo "message ${topic_id}${msg_id} already downloaded. skipping."
     else
-        req "${group_id}/${topic_id}/${msg_id}" > "$path"
+        echo "message ${topic_id}${msg_id} downloading."
+        temp=$(mktemp)
+        if req "message/raw?msg=${group_id}/${topic_id}/${msg_id}" -o "$temp"
+        then
+            mv "$temp" "$path"
+        else
+            echo "message ${topic_id}${msg_id} failed to download." >&2
+            rm "$temp"
+        fi
     fi
 }
 
