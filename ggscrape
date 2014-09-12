@@ -7,7 +7,7 @@
 # Copyright (c) 2014 Charles Lehner
 # Released under the terms of the MIT License.
 
-VERSION=0.0.1
+VERSION=1.0.0
 BASE_URL='https://groups.google.com/forum/'
 
 EX_USAGE=64
