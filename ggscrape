@@ -38,9 +38,13 @@ req_fragment() {
     req "?_escaped_fragment_=$@"
 }
 
-test_permission() {
+check_permission() {
     debug_print testing permission
-    req_fragment "forum/${group_id}%5B1-1-false%5D" -I | grep -q '200 OK'
+    if ! req_fragment "forum/${group_id}%5B1-1-false%5D" -I | grep -q '200 OK'
+    then
+        echo 'Unable to access group.' >&2
+        return 1
+    fi
 }
 
 get_topics_single() {
@@ -73,6 +77,8 @@ get_topics() {
     if ((start==0)); then
         start=1
     fi
+
+    check_permission || return 1
 
     debug_print "get all topics $group_id [$start-$end]"
 
@@ -138,7 +144,7 @@ show_help() {
 ggscrape. Download emails from a Google Group
 
 Usage:
-  ggscrape <group_id> [test]
+  ggscrape <group_id> test
   ggscrape <group_id> topics
   ggscrape <group_id> messages <topic_id>
   ggscrape <group_id> download <dest_dir>
@@ -193,7 +199,7 @@ fi
 
 case "$cmd" in
     '') show_help; exit;;
-    test) test_permission;;
+    test) check_permission && echo Success;;
     topics) get_topics "$topic_begin" "$topic_end";;
     download) download_mails "$topic_begin" "$topic_end";;
     messages) get_messages "$topic_id";;
