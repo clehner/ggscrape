@@ -16,6 +16,7 @@ topic_range=100
 opt_verbose=
 group_id=
 dest_dir=
+ln_dir=
 cookie_str=
 
 if [[ -n "$GG_COOKIE" ]]; then
@@ -101,6 +102,9 @@ download_message() {
         if req "message/raw?msg=${group_id}/${topic_id}/${msg_id}" -o "$temp"
         then
             mv "$temp" "$path"
+            if [[ -n "$ln_dir" ]]; then
+                ln "$path" "$ln_dir"
+            fi
         else
             echo "message ${topic_id}${msg_id} failed to download." >&2
             rm "$temp"
@@ -137,7 +141,7 @@ Usage:
   ggscrape <group_id> [test]
   ggscrape <group_id> topics
   ggscrape <group_id> messages <topic_id>
-  ggscrape <group_id> download <directory>
+  ggscrape <group_id> download <dest_dir>
 
 Options:
   -h, --help            Show this screen
@@ -146,6 +150,7 @@ Options:
   -c, --cookie <cookie> Use the given cookie string
   -b, --begin <topicnum> Topic number at which to begin downloading
   -e, --end <topicnum>  Topic number at which to stop downloading
+  -l, --ln <ln_dir>     Hard link email files into this directory
 
 Environmental variables:
 
@@ -167,6 +172,7 @@ while [[ "$#" -gt 0 ]]; do
         -c|--cookie) cookie_str="$2"; shift;;
         -b|--begin) topic_begin="$2"; shift;;
         -e|--end) topic_end="$2"; shift;;
+        -l|--ln) ln_dir="$2"; shift;;
         topics) cmd=topics;;
         test) cmd=test;;
         messages) cmd=messages; topic_id="$2"; shift;;
