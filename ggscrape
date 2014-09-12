@@ -1,0 +1,183 @@
+#!/bin/bash
+# vi: ts=4 sw=4 et
+#
+# ggscrape(1)
+# Download emails from a Google Groups
+#
+# Copyright (c) 2014 Charles Lehner
+# Released under the terms of the MIT License.
+
+VERSION=0.0.1
+BASE_URL='https://groups.google.com/forum/?_escaped_fragment_='
+
+EX_USAGE=64
+topic_range=100
+
+opt_verbose=
+group_id=
+dest_dir=
+cookie_str=
+
+if [[ -n "$GG_COOKIE" ]]; then
+    cookie_str="$GG_COOKIE"
+fi
+
+debug_print() {
+    if [[ -n $opt_verbose ]]; then
+        echo $@ >&2
+    fi
+}
+
+req() {
+    debug_print query: "$1"
+    curl -sN -b "$cookie_str" "$BASE_URL$@"
+}
+
+test_permission() {
+    debug_print testing permission
+    req "forum/${group_id}%5B1-1-false%5D" -I | grep -q '200 OK'
+}
+
+get_topics_single() {
+    local start=$1
+    local end=$2
+
+    debug_print "get topics $group_id [$start-$end]"
+
+    req "forum/${group_id}%5B${start}-${end}-false%5D" | sed -n \
+        "s/^<i>Showing [^<]* of 0 topics<\/i>$//p;
+        s/<tr>/\0\n/; /lastPostDate/ {
+            s/.*lastPostDate\">\([^<]*\).*$/\1/m; P; D;
+        };
+        /subject/{
+            s/.*href=\"[^\"]*\/\([^\"]*\)\"[^>]*>\([^<]*\).*/\1\n\2/; p;
+        }" | sed '/^$/q99; N; N; s/\(.*\)\n\(.*\)\n\(.*\)/\1\t\3\t\2/'
+    # return status 99 if no matches found
+}
+
+unknown_option() {
+    echo "Unknown option $1" >&2
+    exit $EX_USAGE
+}
+
+get_topics() {
+    local start=$(($1))
+    local end=$(($2))
+    local temp_end
+
+    if [[ -z "$start" ]]; then
+        start=1
+    fi
+
+    debug_print "get all topics $group_id [$start-$end]"
+
+    for ((i = start; i <= end || end == 0; i += topic_range)); do
+        ((temp_end = (end && i+topic_range-1 > end) ? end : i+topic_range-1))
+        get_topics_single $i $temp_end || break
+    done
+}
+
+# get message ids in a topic
+get_messages() {
+    local topic_id="$1"
+    req "topic/${group_id}/${topic_id}" | sed -n\
+        's/.*<td class="subject"><a href="[^"]*'$topic_id'\/\([^"]*\)".*/\1/p'
+}
+
+download_message() {
+    local topic_id="$1"
+    local msg_id="$2"
+    debug_print download topic $topic_id message $msg_id
+    path="${dest_dir}/${group_id}${topic_id}${msg_id}.eml"
+    if [[ -s "$path" ]]; then
+        echo "file for message ${msg_id} already exists. skipping."
+    else
+        req "${group_id}/${topic_id}/${msg_id}" > "$path"
+    fi
+}
+
+download_messages() {
+    local topic_id="$1"
+    debug_print download topic $topic_id
+    get_messages "$topic_id" | while read msg_id _; do
+        download_message "$topic_id" "$msg_id"
+    done
+}
+
+download_mails() {
+    local start=$1
+    local end=$2
+
+    get_topics "$start" "$end" | while read topic_id topic_title; do
+        download_messages $topic_id
+    done
+}
+
+show_version() {
+    echo ggscrape $VERSION
+}
+
+show_help() {
+    cat << EOF
+ggscrape. Download emails from a Google Group
+
+Usage:
+  ggscrape <group_id> [test]
+  ggscrape <group_id> topics
+  ggscrape <group_id> messages <topic_id>
+  ggscrape <group_id> download <directory>
+
+Options:
+  -h, --help            Show this screen
+  --version             Show version
+  -v, --verbose         Show debug info
+  -c, --cookie <cookie> Use the given cookie string
+  -b, --begin <topicnum> Topic number at which to begin downloading
+  -e, --end <topicnum>  Topic number at which to stop downloading
+
+Environmental variables:
+
+  GG_COOKIE             use as value for --cookie
+
+EOF
+}
+
+cmd=
+topic_id=
+topic_begin=
+topic_end=
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        -h|--help) show_help; exit;;
+        --version) show_version; exit;;
+        -v|--verbose) opt_verbose=1;;
+        -c|--cookie) cookie_str="$2"; shift;;
+        -b|--begin) topic_begin="$2"; shift;;
+        -e|--end) topic_end="$2"; shift;;
+        topics) cmd=topics;;
+        test) cmd=test;;
+        messages) cmd=messages; topic_id="$2"; shift;;
+        download) cmd=download; dest_dir="$2"; shift;;
+        *) if [[ -z "$group_id" ]]; then
+            group_id="$1"
+        else
+            unknown_option "$1"
+        fi;;
+    esac
+    shift
+done
+
+if [[ -z "$group_id" ]]; then
+    show_help
+    exit 1
+fi
+
+case "$cmd" in
+    '') show_help; exit;;
+    test) test_permission;;
+    topics) get_topics "$topic_begin" "$topic_end";;
+    download) download_mails "$topic_begin" "$topic_end";;
+    messages) get_messages "$topic_id";;
+    *) echo "Unknown command $cmd" >&2;;
+esac
