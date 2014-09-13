@@ -16,6 +16,10 @@ get a list of messages in a thread
 `ggscrape <group_id> download <dest_dir>`
 download emails! :)
 
+`ggscrape fix_message <file>`
+remove duplicate headers from a mail file. These sometimes happen if you
+manually download an old message from Groups.
+
 ### Options
 
 `-c, --cookie <cookie>`

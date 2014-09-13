@@ -95,6 +95,17 @@ get_messages() {
         's/.*<td class="subject"><a href="[^"]*'$topic_id'\/\([^"]*\)".*/\1/p'
 }
 
+fix_message() {
+    local file="$1"
+    # Some messages have two duplicate sets of headers, the second set starting
+    # with some X-Google stuff. Remove the second set of headers if they are
+    # present.
+    if sed -n '/^\r$/{ n; /^X-Google-Groups:/q; q 1; }' "$file"; then
+        debug_print 'Removing duplicate headers'
+        sed -i~ '/^X-Google-Groups:/,/^\r$/d' "$file" && rm "$file~"
+    fi
+}
+
 download_message() {
     local topic_id="$1"
     local msg_id="$2"
@@ -107,6 +118,7 @@ download_message() {
         temp=$(mktemp)
         if req "message/raw?msg=${group_id}/${topic_id}/${msg_id}" -o "$temp"
         then
+            fix_message "$temp"
             mv "$temp" "$path"
             if [[ -n "$ln_dir" ]]; then
                 ln "$path" "$ln_dir"
@@ -148,6 +160,7 @@ Usage:
   ggscrape <group_id> topics
   ggscrape <group_id> messages <topic_id>
   ggscrape <group_id> download <dest_dir>
+  ggscrape fix_message <file>
 
 Options:
   -h, --help            Show this screen
@@ -169,6 +182,7 @@ cmd=
 topic_id=
 topic_begin=
 topic_end=
+fix_file=
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -183,6 +197,7 @@ while [[ "$#" -gt 0 ]]; do
         test) cmd=test;;
         messages) cmd=messages; topic_id="$2"; shift;;
         download) cmd=download; dest_dir="$2"; shift;;
+        fix_message) cmd=fix_message; fix_file="$2"; shift;;
         *) if [[ -z "$group_id" ]]; then
             group_id="$1"
         else
@@ -191,6 +206,15 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+if [[ $cmd==fix_message ]]; then
+    if [[ -z "$fix_file" ]]; then
+        show_help
+        exit 1
+    fi
+    fix_message "$fix_file"
+    exit
+fi
 
 if [[ -z "$group_id" ]]; then
     show_help
