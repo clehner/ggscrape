@@ -58,3 +58,11 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Similar projects
+
+Interestingly, they all seem to use Python.
+
+- [punchagan/scrape_google_groups.py](https://gist.github.com/punchagan/7947337)
+- [mcepl/gg_scraper](https://github.com/mcepl/gg_scraper)
+- [jrholliday/gg-scrape](https://github.com/jrholliday/gg-scrape)
