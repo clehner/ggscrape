@@ -42,6 +42,11 @@ ggscrape is interrupted and you have to restart it.)
 `GG_COOKIE`
 equivalent to `--cookie`
 
+### Cookies
+
+The cookies you will need to access private groups (as of 2015-05-14) are SID,
+HSID, SSID, and groupsloginpref.
+
 ## License
 
 Copyright (c) 2014 Charles Lehner
