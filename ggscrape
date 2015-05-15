@@ -207,7 +207,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [[ $cmd==fix_message ]]; then
+if [[ "$cmd" == fix_message ]]; then
     if [[ -z "$fix_file" ]]; then
         show_help
         exit 1
