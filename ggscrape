@@ -102,8 +102,11 @@ fix_message() {
     # present.
     if sed -n '/^\r$/{ n; /^X-Google-Groups:/q; q 1; }' "$file"; then
         debug_print 'Removing duplicate headers'
-        sed -i~ '/^X-Google-Groups:/,/^\r$/d' "$file" && rm "$file~"
+        sed -i~ '/^X-Google-Groups:/,/^\r$/d' "$file"
     fi
+    # Add missing multipart/alternative boundary
+    sed -i~ '/^--[^< ]*$/{ n; /^--[^< ]*$/{ s/^--\(.*\)/Content-Type: multipart\/alternative; boundary=\1\n\n\0/; }; }' "$file"
+    rm "$file~"
 }
 
 download_message() {
